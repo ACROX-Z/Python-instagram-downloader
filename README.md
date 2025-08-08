@@ -1,4 +1,4 @@
-# streamlit-instagram-downloader
+# Python-instagram-downloader
 
 ## 📥 Instagram Post/Reel Download
 
