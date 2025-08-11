@@ -6,27 +6,31 @@ import shutil
 import threading
 import time
 
-# Helper to extract shortcode
+# ---------- Helper: Extract shortcode from Instagram URL ----------
 def extract_shortcode(url: str) -> str:
-    path_parts = [p for p in urlparse(url).path.split("/") if p]
-    if len(path_parts) >= 2:
-        return path_parts[1]
-    raise ValueError("❌ Couldn’t locate a shortcode in that URL.")
+    parsed = urlparse(url.strip())
+    path_parts = [p for p in parsed.path.split("/") if p]
 
-# Auto delete folder after 2 minutes
+    # Handle valid formats: /p/<shortcode>/, /reel/<shortcode>/, /tv/<shortcode>/
+    if len(path_parts) >= 2 and path_parts[0] in ["p", "reel", "tv"]:
+        return path_parts[1].split("?")[0]  # Remove query params if any
+
+    raise ValueError("❌ Couldn’t locate a valid shortcode in that URL. Make sure it's a post, reel, or IGTV link.")
+
+# ---------- Helper: Auto delete folder after X seconds ----------
 def schedule_deletion(path: str, delay: int = 120):
     def delete_folder():
         time.sleep(delay)
         if os.path.exists(path):
             shutil.rmtree(path)
             print(f"🧹 Deleted folder: {path}")
-    threading.Thread(target=delete_folder).start()
+    threading.Thread(target=delete_folder, daemon=True).start()
 
-# Streamlit Page Config
+# ---------- Streamlit Page Config ----------
 st.set_page_config(page_title="Instagram Downloader", layout="centered")
-st.title("📥 Instagram Post/Reel/TV Downloader")
+st.title("📥 Instagram Post / Reel / IGTV Downloader")
 
-# --- Form UI ---
+# ---------- Form UI ----------
 with st.form("download_form"):
     url = st.text_input("🔗 Enter Instagram Post / Reel / TV URL")
     use_login = st.checkbox("Login to download private posts")
@@ -38,7 +42,7 @@ with st.form("download_form"):
 
     submitted = st.form_submit_button("Download")
 
-# --- On Form Submit ---
+# ---------- On Form Submit ----------
 if submitted:
     if not url:
         st.error("❗ Please enter a valid Instagram URL.")
@@ -59,7 +63,7 @@ if submitted:
                     post_metadata_txt_pattern=""
                 )
 
-                if use_login and username:
+                if use_login and username and password:
                     L.login(username, password)
 
                 # Get Post Object
@@ -80,9 +84,11 @@ if submitted:
                     st.warning("⚠️ No media found after download.")
                 else:
                     st.success(f"✅ {len(media_files)} media file(s) downloaded.")
+
                     image_files = [f for f in media_files if f.endswith(".jpg")]
                     video_files = [f for f in media_files if f.endswith(".mp4")]
 
+                    # Display images
                     if image_files:
                         st.info("📸 Displaying all images from the post:")
                         for i, img_file in enumerate(image_files, start=1):
@@ -99,6 +105,7 @@ if submitted:
                                 key=f"img_dl_{i}"
                             )
 
+                    # Display videos
                     if video_files:
                         st.info("🎥 Displaying video(s):")
                         for i, video in enumerate(video_files, start=1):
